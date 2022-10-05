@@ -14,6 +14,6 @@ model User{
   id String @unique @default (uuid())
   email String @unique
   hashedpassword String
-  createdAt dateTime @default(now())
+  createdAt DateTime @default(now())
   updateAt DateTime @updatedAt()
 }
