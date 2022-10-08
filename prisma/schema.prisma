@@ -14,6 +14,8 @@ model User{
   id String @unique @default (uuid())
   email String @unique
   hashedpassword String
+  hashedRt String?
+  hashedAt String?
   createdAt DateTime @default(now())
   updateAt DateTime @updatedAt()
 }
