@@ -14,6 +14,14 @@ import { AuthDto } from "./dto/auth.dto";
 export class AuthService {
   constructor(private prisma: PrismaService, private jwt: JwtService) {}
 
+  refreshTokens(request: any, response: any) {
+    throw new Error("Method not implemented.");
+  }
+
+  hashData(data: string) {
+    return bcrypt.hash(data, 10);
+  }
+
   async signup(createUser: AuthDto) {
     const { email, password } = createUser;
 
@@ -28,52 +36,61 @@ export class AuthService {
     const salt = await bcrypt.genSalt();
     const hashedpassword = await bcrypt.hash(password, salt);
 
-    await this.prisma.user.create({
+    const newUser = await this.prisma.user.create({
       data: {
         email,
         hashedpassword,
       },
     });
 
-    return { message: "signup was succesfull" };
+    const tokens = await this.getTokens({
+      id: newUser.id,
+      email: newUser.email,
+    });
+
+    await this.updateRtHash(newUser.id, tokens.refreshtoken);
+
+    return tokens;
   }
 
   async login(user: AuthDto, req: Request, res: Response) {
-    const { email, password } = user;
+    try {
+      const { email, password } = user;
 
-    const foundUser = await this.prisma.user.findUnique({
-      where: { email },
-    });
+      const foundUser = await this.prisma.user.findUnique({
+        where: { email },
+      });
 
-    if (!foundUser) {
-      throw new BadRequestException("Wrong credentials");
+      if (!foundUser) {
+        throw new BadRequestException("Wrong credentials");
+      }
+
+      const isMatch = await bcrypt.compare(password, foundUser.hashedpassword);
+
+      if (!isMatch) {
+        throw new BadRequestException("Wrong credentials");
+      }
+
+      const token = await this.signToken({
+        id: foundUser.id,
+        email: foundUser.email,
+      });
+
+      if (!token) {
+        throw new ForbiddenException("Invalid token");
+      }
+
+      const expires = new Date(Date.now() + config.JWT_EXPIRATION_TIME * 1000);
+
+      res.cookie("Authentication", token, {
+        // secure: true,
+        httpOnly: true,
+        expires,
+      });
+      return res.json({ message: "Logged success" });
+    } catch (e) {
+      return res.json({ error: e.message });
     }
-
-    const isMatch = await bcrypt.compare(password, foundUser.hashedpassword);
-
-    if (!isMatch) {
-      throw new BadRequestException("Wrong credentials");
-    }
-
-    const token = await this.signToken({
-      id: foundUser.id,
-      email: foundUser.email,
-    });
-
-    if (!token) {
-      throw new ForbiddenException("Invalid token");
-    }
-
-    const expires = new Date(Date.now() + config.JWT_EXPIRATION_TIME * 1000);
-
-    res.cookie("Authentication", token, {
-      httpOnly: true,
-      expires,
-    });
-
-    return res.send({
-      message: "Logged success",
-    });
   }
 
   async logout(req: Request, res: Response) {
@@ -83,7 +100,42 @@ export class AuthService {
     });
   }
 
+  async updateRtHash(id: string, rt: string) {
+    const hash = await this.hashData(rt);
+
+    await this.prisma.user.update({
+      where: {
+        id: id,
+      },
+      data: {
+        hashedRt: hash,
+      },
+    });
+  }
+
+  async getTokens(payload: { id: string; email: string }) {
+    const [accessToken, refreshtoken] = await Promise.all([
+      this.jwt.signAsync(payload, {
+        secret: config.ACCESS_TOKEN_SECRET,
+        expiresIn: 60 * 15,
+      }),
+      this.jwt.signAsync(payload, {
+        secret: config.REFRESH_TOKEN_SECRET,
+        expiresIn: 60 * 60 * 24 * 7,
+      }),
+    ]);
+
+    return {
+      accessToken,
+      refreshtoken,
+    };
+  }
+
   async signToken(payload: { id: string; email: string }) {
-    return this.jwt.signAsync(payload, { secret: config.JWT_SECRET });
+    const token = await this.jwt.signAsync(payload, {
+      secret: config.JWT_SECRET,
+    });
+
+    return token;
   }
 }
