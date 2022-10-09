@@ -13,5 +13,9 @@ async function bootstrap() {
   app.setGlobalPrefix("api");
   app.use(cookieParser());
   await app.listen(3001);
+
+  //for public authGuard (accessTokenGuard)
+  // const reflector = new Reflector();
+  // app.useGlobalGuards(new JwtAccessTokenAuthGuard(reflector));
 }
 bootstrap();
