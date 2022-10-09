@@ -14,10 +14,6 @@ import { AuthDto } from "./dto/auth.dto";
 export class AuthService {
   constructor(private prisma: PrismaService, private jwt: JwtService) {}
 
-  refreshTokens(request: any, response: any) {
-    throw new Error("Method not implemented.");
-  }
-
   hashData(data: string) {
     return bcrypt.hash(data, 10);
   }
@@ -71,33 +67,71 @@ export class AuthService {
         throw new BadRequestException("Wrong credentials");
       }
 
-      const token = await this.signToken({
+      const cookieToken = await this.signToken({
         id: foundUser.id,
         email: foundUser.email,
       });
 
-      if (!token) {
+      if (!cookieToken) {
         throw new ForbiddenException("Invalid token");
       }
 
       const expires = new Date(Date.now() + config.JWT_EXPIRATION_TIME * 1000);
 
-      res.cookie("Authentication", token, {
+      res.cookie("Authentication", cookieToken, {
         // secure: true,
         httpOnly: true,
         expires,
       });
-      return res.json({ message: "Logged success" });
+
+      const tokens = await this.getTokens({
+        id: foundUser.id,
+        email: foundUser.email,
+      });
+
+      await this.updateRtHash(foundUser.id, tokens.refreshtoken);
+
+      return res.json({ tokens });
     } catch (e) {
       return res.json({ error: e.message });
     }
   }
 
-  async logout(req: Request, res: Response) {
+  async logout(id, res: Response) {
     res.clearCookie("Authentication");
+
+    await this.deleteRtHash(id);
+
     return res.send({
       message: "Logout success",
     });
+  }
+
+  async refreshTokens(id: string, refreshToken: string, res: Response) {
+    const user = await this.prisma.user.findUnique({
+      where: {
+        id,
+      },
+    });
+
+    if (!user || !user.hashedRt) {
+      throw new ForbiddenException("Access Denied1");
+    }
+
+    const isRtMatch = await bcrypt.compare(refreshToken, user.hashedRt);
+
+    if (!isRtMatch) {
+      throw new ForbiddenException("Access Denied2");
+    }
+
+    const tokens = await this.getTokens({
+      id: user.id,
+      email: user.email,
+    });
+
+    await this.updateRtHash(user.id, tokens.refreshtoken);
+
+    return res.json({ tokens });
   }
 
   async updateRtHash(id: string, rt: string) {
@@ -109,6 +143,17 @@ export class AuthService {
       },
       data: {
         hashedRt: hash,
+      },
+    });
+  }
+
+  async deleteRtHash(id: string) {
+    await this.prisma.user.update({
+      where: {
+        id: id,
+      },
+      data: {
+        hashedRt: null,
       },
     });
   }
