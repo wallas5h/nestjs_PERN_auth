@@ -93,7 +93,8 @@ export class AuthService {
 
       return res.json({ tokens });
     } catch (e) {
-      return res.json({ error: e.message });
+      // return res.json({ error: e.message });
+      return null;
     }
   }
 
