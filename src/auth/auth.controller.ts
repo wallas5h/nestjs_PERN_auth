@@ -12,7 +12,7 @@ import { GetPropCurrentUser } from "src/decorators/current-user.decorator";
 import { CurrentUserId } from "src/decorators/current-userID.decorator";
 import { Public } from "src/decorators/public.decorator";
 import { AuthService } from "./auth.service";
-import { AuthDto } from "./dto/auth.dto";
+import { AuthDto, RegisterDto } from "./dto/auth.dto";
 import { JwtRefreshTokenAuthGuard } from "./guards/jwt-refreshToken.auth.guard";
 
 @Controller("auth")
@@ -22,7 +22,7 @@ export class AuthController {
   @Public()
   @Post("signup")
   @HttpCode(HttpStatus.CREATED)
-  signup(@Body() createUser: AuthDto) {
+  signup(@Body() createUser: RegisterDto) {
     return this.authService.signup(createUser);
   }
 

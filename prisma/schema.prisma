@@ -10,12 +10,25 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User{
-  id String @unique @default (uuid())
-  email String @unique
+model User {
+  id             String   @unique @default(uuid())
+  email          String   @unique
   hashedpassword String
-  hashedRt String?
-  hashedAt String?
-  createdAt DateTime @default(now())
-  updateAt DateTime @updatedAt()
+  role           String
+  name           String
+  isActive       Boolean  @default(false)
+  hashedRt       String?
+  hashedAt       String?
+  createdAt      DateTime @default(now())
+  updateAt       DateTime @updatedAt()
+}
+
+model User1 {
+  id             String   @unique @default(uuid())
+  email          String   @unique
+  hashedpassword String
+  hashedRt       String?
+  hashedAt       String?
+  createdAt      DateTime @default(now())
+  updateAt       DateTime @updatedAt()
 }

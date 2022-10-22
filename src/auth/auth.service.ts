@@ -8,7 +8,7 @@ import * as bcrypt from "bcrypt";
 import { config } from "config/config";
 import { Request, Response } from "express";
 import { PrismaService } from "prisma/prisma.service";
-import { AuthDto } from "./dto/auth.dto";
+import { AuthDto, RegisterDto } from "./dto/auth.dto";
 
 @Injectable()
 export class AuthService {
@@ -18,8 +18,8 @@ export class AuthService {
     return bcrypt.hash(data, 10);
   }
 
-  async signup(createUser: AuthDto) {
-    const { email, password } = createUser;
+  async signup(createUser: RegisterDto) {
+    const { email, password, role, name, isActive } = createUser;
 
     const founduser = await this.prisma.user.findUnique({
       where: { email },
@@ -36,6 +36,9 @@ export class AuthService {
       data: {
         email,
         hashedpassword,
+        role,
+        name,
+        isActive,
       },
     });
 
